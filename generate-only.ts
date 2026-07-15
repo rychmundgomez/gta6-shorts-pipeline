@@ -7,13 +7,24 @@
 import "dotenv/config";
 import fs from "fs/promises";
 import { generateScript, type ScriptRequest } from "./generate-script";
-
-// TODO: replace this with pulling real NewsItem/FactEntry data for the week —
-// this is just wiring the CI flow together, not a content source.
-import { testRequestForCI } from "./weekly-content"; // you create this file per week (see note below)
+import { fetchLatestGTA6News } from "./fetch-news";
 
 async function main() {
-  const script = await generateScript(testRequestForCI);
+  const newsItems = await fetchLatestGTA6News();
+
+  const weekOf = new Date().toISOString().slice(0, 10);
+  const request: ScriptRequest = {
+    weekOf,
+    newsItems,
+    factUpdates: [], // fact-tracker entries still require manual judgment for now — see note below
+  };
+
+  if (newsItems.length === 0) {
+    console.log("No new GTA6-relevant Newswire items found this week — skipping script generation.");
+    return;
+  }
+
+  const script = await generateScript(request);
 
   // Save for Job 2 to read after approval
   await fs.mkdir("./pipeline-output", { recursive: true });
