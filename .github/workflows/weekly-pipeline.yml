@@ -1,0 +1,51 @@
+name: GTA6 Shorts Weekly Pipeline
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Every Monday 9am UTC — adjust to your preferred day/time
+  workflow_dispatch: {} # lets you also trigger it manually from the Actions tab
+
+jobs:
+  generate-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npx tsx generate-only.ts
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: approved-script
+          path: pipeline-output/approved-script.json
+
+  render-and-publish:
+    needs: generate-script
+    runs-on: ubuntu-latest
+    # This is the approval gate. Create an Environment named "approval" in
+    # your repo settings and add yourself as a required reviewer — GitHub
+    # will then email you when this job is waiting, with a link to review
+    # the script (from the job summary above) and click Approve.
+    environment: approval
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - uses: actions/download-artifact@v4
+        with:
+          name: approved-script
+          path: pipeline-output
+      - run: npx tsx render-and-publish.ts
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REDIRECT_URI: ${{ secrets.YOUTUBE_REDIRECT_URI }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
