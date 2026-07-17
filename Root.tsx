@@ -5,17 +5,15 @@
 
 import React from "react";
 import { Composition, type CalculateMetadataFunction } from "remotion";
-import { FactCheckShort, FPS, WIDTH, HEIGHT, type FactCheckShortProps } from "./FactCheckShort";
+import { FactCheckShort, FPS, WIDTH, HEIGHT, END_CARD_SECONDS, type FactCheckShortProps } from "./FactCheckShort";
 
 // Computes the REAL duration from the actual voiceover length passed in via
-// --props at render time — this is what was missing before, which is why
-// every render defaulted to the full 90-second upper bound regardless of
-// how long the voiceover actually was.
+// --props at render time, PLUS extra padding for the end card so it plays
+// after captions finish rather than cutting the last one short.
 const calculateMetadata: CalculateMetadataFunction<FactCheckShortProps> = ({ props }) => {
-  const durationInFrames = Math.max(
-    Math.round((props.voiceover?.totalDurationSeconds ?? 90) * FPS),
-    FPS * 3 // safety floor so a malformed 0-second input doesn't render an empty video
-  );
+  const voiceoverFrames = Math.round((props.voiceover?.totalDurationSeconds ?? 90) * FPS);
+  const endCardFrames = Math.round(END_CARD_SECONDS * FPS);
+  const durationInFrames = Math.max(voiceoverFrames + endCardFrames, FPS * 3);
   return { durationInFrames };
 };
 

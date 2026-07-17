@@ -191,8 +191,19 @@ const Background: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
+// Logo mark — an original abstract geometric shape (interlocking diamond),
+// not resembling any existing IP. Used in both the persistent watermark and
+// the end card. Swap the SVG path if you want a different mark later.
+// ---------------------------------------------------------------------------
+const LogoMark: React.FC<{ size: number }> = ({ size }) => (
+  <svg width={size} height={size} viewBox="0 0 100 100">
+    <polygon points="50,10 90,50 50,90 10,50" fill="#FFFFFF" opacity={0.95} />
+    <polygon points="50,30 70,50 50,70 30,50" fill="#14A078" />
+  </svg>
+);
+
+// ---------------------------------------------------------------------------
 // Watermark — small persistent channel mark, top-left, present the whole video.
-// Swap the text/logo for your actual channel branding.
 // ---------------------------------------------------------------------------
 const Watermark: React.FC = () => (
   <div
@@ -202,30 +213,71 @@ const Watermark: React.FC = () => (
       left: 40,
       display: "flex",
       alignItems: "center",
-      gap: 8,
+      gap: 10,
     }}
   >
-    <div
-      style={{
-        width: 28,
-        height: 28,
-        borderRadius: 8,
-        background: "#FFFFFF25",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 16,
-        fontWeight: 800,
-        color: "#FFFFFF",
-      }}
-    >
-      ?
-    </div>
+    <LogoMark size={30} />
     <div style={{ fontSize: 20, fontWeight: 700, color: "#FFFFFFCC", fontFamily: "Inter, sans-serif" }}>
       GTA6 Watch
     </div>
   </div>
 );
+
+// ---------------------------------------------------------------------------
+// End card — takes over the final ~2.5 seconds with the logo mark and a
+// follow prompt, giving the video a deliberate close instead of just
+// stopping after the last caption fades.
+// ---------------------------------------------------------------------------
+export const END_CARD_SECONDS = 2.5;
+
+const EndCard: React.FC<{ totalFrames: number }> = ({ totalFrames }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const startFrame = totalFrames - Math.round(END_CARD_SECONDS * fps);
+  const localFrame = frame - startFrame;
+
+  if (localFrame < 0) return null;
+
+  const opacity = interpolate(localFrame, [0, 10], [0, 1], { extrapolateRight: "clamp" });
+  const scale = spring({ frame: localFrame, fps, config: { damping: 14 } });
+
+  return (
+    <AbsoluteFill
+      style={{
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(10, 15, 12, 0.75)",
+        opacity,
+      }}
+    >
+      <div style={{ transform: `scale(${scale})`, textAlign: "center" }}>
+        <LogoMark size={120} />
+        <div
+          style={{
+            marginTop: 24,
+            fontSize: 44,
+            fontWeight: 800,
+            color: "#FFFFFF",
+            fontFamily: "Inter, sans-serif",
+          }}
+        >
+          GTA6 Watch
+        </div>
+        <div
+          style={{
+            marginTop: 8,
+            fontSize: 28,
+            fontWeight: 600,
+            color: "#FFFFFFB0",
+            fontFamily: "Inter, sans-serif",
+          }}
+        >
+          Follow for weekly updates
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Progress bar so viewers can see how many facts are left — a small retention aid
@@ -248,8 +300,8 @@ export const FactCheckShort: React.FC<FactCheckShortProps> = ({
   backgroundVideoPath,
   backgroundVideoDurationSeconds,
 }) => {
-  const { fps } = useVideoConfig();
-  const totalFrames = Math.round(voiceover.totalDurationSeconds * fps);
+  const { fps, durationInFrames } = useVideoConfig();
+  const totalFrames = durationInFrames; // includes voiceover length + end card padding, set by Root.tsx's calculateMetadata
 
   return (
     <AbsoluteFill>
@@ -274,6 +326,7 @@ export const FactCheckShort: React.FC<FactCheckShortProps> = ({
       })}
 
       <Audio src={staticFile(voiceover.audioPath)} />
+      <EndCard totalFrames={totalFrames} />
     </AbsoluteFill>
   );
 };
